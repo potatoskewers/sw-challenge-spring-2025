@@ -1,12 +1,13 @@
 import os
 import csv
 from datetime import datetime
+from queue import Queue
 import re
 import threading
 
 
-
-path = "/Users/danielyang/Desktop/sw-challenge-spring-2025/data"
+path = "../data"
+# path = "/Users/danielyang/Desktop/sw-challenge-spring-2025/data"
 file_list = os.listdir(path)
 # print(file_list)
 
@@ -15,6 +16,7 @@ file_list = os.listdir(path)
 class DataDictionary:
     data_list = {}
     error_list = []
+    queue = Queue()
 
 
 def validation(input_str, error_list):
@@ -47,25 +49,35 @@ def day_tick(files, data_list, error_list):
                 first_entry[0] = label_timestamp.strftime("%S.%f")
                 entries.append(first_entry)
             except StopIteration:
-                # print(f"time error! {label_timestamp}")
+                print(f"time error! {label_timestamp}")
                 continue
             # print(label)
             for rows in csv_reader:
                 try:
                     row_timestamp = datetime.strptime(rows[0], "%Y-%m-%d %H:%M:%S.%f")
+                    time_validator = int(label_timestamp.strftime("%H%M%S"))
+                    if time_validator > 163000 or time_validator < 93000 :
+                        # print(label_timestamp.strftime("%H%M%S"))
+                        # print("market closes at 4:30 PM!")
+                        error_list.append(rows)
+                        continue
                 except ValueError:
+                    # print(f"time error! {rows}")
                     continue
                 full_entry = ','.join(rows[1:])
                 if validation(full_entry, error_list) is False:
                     continue
-                rows[0] = row_timestamp.strftime("%S.%f")
-                entries.append(rows)
-            data_list[label_timestamp.strftime("%Y%m%d%H%M")] = entries
-            print(error_list)
+                # rows[0] = row_timestamp.strftime("%f")
+                key = row_timestamp.strftime("%Y%m%d%H%M%S")
+                if key not in data_list.keys():
+                    data_list[key] = []
+                data_list.get(key).append(rows)
+            # print(error_list)
 
 
 def thread_manager(files, data_list, error_list):
-    thread_count = int(input("Please type how many threads you want to simultaneously run\n"))
+    # thread_count = int(input("Please type how many threads you want to simultaneously run\n"))
+    thread_count = 4
 
     # Calculate the size of each thread's slice of data
     slice_size = len(files) // thread_count
@@ -89,17 +101,69 @@ def thread_manager(files, data_list, error_list):
 
     print("All threads finished.")
 
-    # print(index)
+
+from datetime import datetime
+
+
+def interface(interval, start_time, end_time, DataDictionary):
+    # print(DataDictionary.data_list)
+    print("Starting interface!")
+
+    start_time_conversion = datetime.strptime(start_time, "%Y-%m-%d %H:%M:%S")
+    end_time_conversion = datetime.strptime(end_time, "%Y-%m-%d %H:%M:%S")
+
+    end_time = int(end_time_conversion.strftime("%Y%m%d%H%M%S"))
+    start_time = int(start_time_conversion.strftime("%Y%m%d%H%M%S"))
+
+    if interval[-1] == 'h':
+        format = 10000
+        carry_on = 240000
+    elif interval[-1] == 'm':
+        format = 100
+        carry_on = 6000
+    elif interval[-1] == 's':
+        format = 1
+        carry_on = 60
+    elif interval[-1] == 'd':
+        format = 1000000
+        carry_on = 30000000
+    else:
+        return "Invalid interval!"
+
+    print(f"Start: {start_time}, End: {end_time}, Step: {format}")
+
+    while start_time <= end_time:
+        data_entry = DataDictionary.data_list.get(str(start_time))
+        if data_entry is None:
+            print(f"No data found for {start_time}")
+        else:
+            print(data_entry[0])
+        start_time += format
+        # Handle carry over properly
+        start_time_str = str(start_time)
+        masked_int = int(start_time_str[-len(str(carry_on)):])  # Extract last part
+        if masked_int >= carry_on:
+            new_str = start_time_str[:-len(str(carry_on))] + str(masked_int - carry_on).zfill(len(str(carry_on)))
+            start_time = int(new_str)
+
+    print("Done!")
+
+    #write to csv based on etc factors
+
+# print(index)
 ctg_ticks = DataDictionary()
 # day_tick(file_list, ctg_ticks.data_list)
 
 # print("\n\n")
 thread_manager(file_list, ctg_ticks.data_list, ctg_ticks.error_list)
 
-print(ctg_ticks.data_list)
+# print(ctg_ticks.data_list)
 print(len(ctg_ticks.data_list))
 print(len(file_list))
 print(ctg_ticks.data_list.get('202409160930'))
-print(ctg_ticks.data_list.get('202409191641'))
+print(ctg_ticks.data_list.get('202409161456'))
 print("\n\n\n")
-print(f" the errors: {ctg_ticks.error_list}")
+# print(f" the errors: {ctg_ticks.error_list}")
+# print(ctg_ticks.data_list)
+print(ctg_ticks.data_list.get('20240916093000'))
+interface('1s', '2024-09-17 12:34:01', '2024-09-20 13:33:18', ctg_ticks)
