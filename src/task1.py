@@ -1,169 +1,213 @@
+import heapq
 import os
 import csv
-from datetime import datetime
-from queue import Queue
+import queue
+from datetime import datetime, timedelta
 import re
-import threading
-
+import statistics
+from concurrent.futures import ThreadPoolExecutor
 
 path = "../data"
-# path = "/Users/danielyang/Desktop/sw-challenge-spring-2025/data"
 file_list = os.listdir(path)
-# print(file_list)
+pattern = re.compile(r"ctg_tick_(\d{8})_(\d{4})_")
+file_list.sort(key=lambda x: tuple(map(int, pattern.search(x).groups())))
 
-    # def __init__(self):
+data_queue = queue.Queue()
 
 class DataDictionary:
     data_list = {}
     error_list = []
-    queue = Queue()
 
+def validation(data_dict):
+    price_upper_bound = 9999999999999999999999999999999
+    price_lower_bound = 0
+    volume_lower_bound = 100
+    price_outlier_flag = []
+    duplicates = {}
+    seen_keys = set()
+    price_window = [float(data_queue.queue[0][1])]
+    volume_window = [int(data_queue.queue[0][2])]
+    volume_outlier_window = data_queue.qsize()*.03
+    i = 0
+    pattern = re.compile(r"^([1-9]\d*(\.\d+)?),([1-9]\d*)$")
+    price_outlier_window = (data_queue.qsize())*.10
+    while not data_queue.empty():
+        i += 1
+        input_str = data_queue.get()
+        try:
+            row_timestamp = datetime.strptime(input_str[0], "%Y-%m-%d %H:%M:%S.%f")
+            # time_validator = int(row_timestamp.strftime("%H%M%S"))
+            # if time_validator > 163000 or time_validator < 93000:
+                # print(label_timestamp.strftime("%H%M%S"))
+                # print("market closes at 4:30 PM!")
+                # data_dict.error_list.append(input_str)
+        except ValueError:
+            print(f"time error!")
+            continue
+        full_entry = ','.join(input_str[1:])
+        if not pattern.match(full_entry):
+            # print("match false!")
+            continue
+        # rows[0] = row_timestamp.strftime("%f")
+        price_outlier_calculator = float(input_str[1])
+        volume_outlier_calculator = int(input_str[2])
+        if len(price_window) > price_outlier_window:
+            price_window.pop(0)
+        if volume_outlier_calculator < volume_lower_bound:
+            # print(f"cleaned low volume:{volume_outlier_calculator} under {volume_lower_bound}")
+            continue
+        if i > price_outlier_window:  # Ensure enough data points
+            i = 0  # Reset counter
+            price_q1 = statistics.quantiles(price_window, n=4)[0]
+            price_q3 = statistics.quantiles(price_window, n=4)[2]
+            IQR = price_q3 - price_q1
+            price_lower_bound = price_q1 - 5 * IQR
+            price_upper_bound = price_q3 + 5 * IQR
+        if price_outlier_calculator < price_lower_bound or price_outlier_calculator > price_upper_bound:
+            price_outlier_flag.append(input_str)
+            print(f"Outlier detected! {input_str} with bounds {price_lower_bound} and {price_upper_bound}")
+            continue  # Skip adding this outlier value
+            # Append only valid numbers
+        key = row_timestamp.strftime("%Y%m%d%H%M%S")
+        if input_str[0] in seen_keys:
+            # print(f"duplicate value found: {input_str}")
+            if input_str[0] not in duplicates:
+                duplicates[input_str[0]] = []
+            duplicates[input_str[0]].append(input_str)
+            continue
+        elif key not in data_dict.data_list.keys():
+            data_dict.data_list[key] = []
+        data_dict.data_list.get(key).append(input_str)
+        price_window.append(price_outlier_calculator)
+        seen_keys.add(input_str[0])
+        duplicates[input_str[0]] = [input_str]
+        volume_window.append(volume_outlier_calculator)
+    duplicates = {key: value for key, value in duplicates.items() if len(value) > 1}
 
-def validation(input_str, error_list):
-    pattern = "^([1-9]\d*(\.\d+)?),([1-9]\d*)$"
-    match = re.match(pattern, input_str)
-    generalized = re.sub(r"-?\d+(\.\d+)?", r"\\d+(\\.\\d+)?", input_str)
-    if bool(match) is False:
-        # # print(input_str)
-        # regex_pattern = re.escape(input_str)
-        # for i in error_list:
-        #     if re.match(i[0], generalized):
-        #         i.append(input_str)
-        #         return False
-        # new_pattern = [generalized]
-        # error_list.append(new_pattern)
-        # error_list[0].append(input_str)
-        error_list.append(input_str)
-        return False
-    return True
-def day_tick(files, data_list, error_list):
-    for i in files:
-        with open(f"/Users/danielyang/Desktop/sw-challenge-spring-2025/data/{i}", newline='') as tick:
-            csv_reader = csv.reader(tick)
-            entries = []
-            try:
-                next(csv_reader)
-                first_entry = next(csv_reader)
-                label = first_entry[0]
-                label_timestamp = datetime.strptime(label, "%Y-%m-%d %H:%M:%S.%f")
-                first_entry[0] = label_timestamp.strftime("%S.%f")
-                entries.append(first_entry)
-            except StopIteration:
-                print(f"time error! {label_timestamp}")
-                continue
-            # print(label)
-            for rows in csv_reader:
-                try:
-                    row_timestamp = datetime.strptime(rows[0], "%Y-%m-%d %H:%M:%S.%f")
-                    time_validator = int(label_timestamp.strftime("%H%M%S"))
-                    if time_validator > 163000 or time_validator < 93000 :
-                        # print(label_timestamp.strftime("%H%M%S"))
-                        # print("market closes at 4:30 PM!")
-                        error_list.append(rows)
-                        continue
-                except ValueError:
-                    # print(f"time error! {rows}")
-                    continue
-                full_entry = ','.join(rows[1:])
-                if validation(full_entry, error_list) is False:
-                    continue
-                # rows[0] = row_timestamp.strftime("%f")
-                key = row_timestamp.strftime("%Y%m%d%H%M%S")
-                if key not in data_list.keys():
-                    data_list[key] = []
-                data_list.get(key).append(rows)
-            # print(error_list)
+def process_data(file):
+    with open(f"{path}/{file}", newline='') as tick:
+        data = list(csv.reader(tick))[1:]  # Skip header immediately
+    for rows in data:
+        data_queue.put(rows)
 
-
-def thread_manager(files, data_list, error_list):
+def thread_manager(files, data_dict):
     # thread_count = int(input("Please type how many threads you want to simultaneously run\n"))
-    thread_count = 4
 
     # Calculate the size of each thread's slice of data
-    slice_size = len(files) // thread_count
 
     threads = []
+    i = 0
+    # for file_name in files:
+    #     try:
+    #         thread = threading.Thread(target=process_data, args=(file_name,))
+    #         threads.append(thread)
+    #         thread.start()
+    #         i += 1
+    #         print(i)
+    #     except RuntimeError:
+    #         print("err")
 
-    # Loop to create and start threads
-    for i in range(thread_count):
-        # Calculate start and end indices for this thread's slice
-        start_index = i * slice_size
-        # Ensure the last thread gets all remaining items
-        end_index = (i + 1) * slice_size if i < thread_count - 1 else len(data_list)
-        # Pass the correct slice to the thread by passing a list of arguments
-        thread = threading.Thread(target=day_tick, args=(files[start_index:end_index], data_list, error_list))
-        threads.append(thread)
-        thread.start()
-
+    i = 0
+    with ThreadPoolExecutor(max_workers=os.cpu_count() * 2) as exe:
+        for file_name in files:
+            exe.submit(process_data, (file_name))
+            i += 1
+            print(i)
     # Wait for all threads to finish
-    for thread in threads:
-        thread.join()
-
     print("All threads finished.")
+    validation(data_dict)
 
-
-from datetime import datetime
-
-
-def interface(interval, start_time, end_time, DataDictionary):
-    # print(DataDictionary.data_list)
+def interface(interval, start_time, end_time, ctg):
     print("Starting interface!")
-
     start_time_conversion = datetime.strptime(start_time, "%Y-%m-%d %H:%M:%S")
     end_time_conversion = datetime.strptime(end_time, "%Y-%m-%d %H:%M:%S")
-
-    end_time = int(end_time_conversion.strftime("%Y%m%d%H%M%S"))
-    start_time = int(start_time_conversion.strftime("%Y%m%d%H%M%S"))
-
-    if interval[-1] == 'h':
-        format = 10000
-        carry_on = 240000
-    elif interval[-1] == 'm':
-        format = 100
-        carry_on = 6000
-    elif interval[-1] == 's':
-        format = 1
-        carry_on = 60
-    elif interval[-1] == 'd':
-        format = 1000000
-        carry_on = 30000000
-    else:
-        return "Invalid interval!"
-
-    print(f"Start: {start_time}, End: {end_time}, Step: {format}")
-
-    while start_time <= end_time:
-        data_entry = DataDictionary.data_list.get(str(start_time))
-        if data_entry is None:
-            print(f"No data found for {start_time}")
+    times = interval.split(",")
+    time_frame = 0
+    for i in times:
+        if i[-1] == 'h':
+            time_frame += int(i[:-1]) * 3600
+        elif i[-1] == 'm':
+            time_frame += int(i[:-1]) * 60
+        elif i[-1] == 's':
+            time_frame += int(i[:-1]) * 1
+        elif i[-1] == 'd':
+            time_frame += int(i[:-1]) * 86400
         else:
-            print(data_entry[0])
-        start_time += format
-        # Handle carry over properly
-        start_time_str = str(start_time)
-        masked_int = int(start_time_str[-len(str(carry_on)):])  # Extract last part
-        if masked_int >= carry_on:
-            new_str = start_time_str[:-len(str(carry_on))] + str(masked_int - carry_on).zfill(len(str(carry_on)))
-            start_time = int(new_str)
+            return "Invalid interval!"
+    with open(f'../ctg_{"".join(times)}_{start_time}_{end_time}ohlcv.csv', 'w', newline='') as csvfile:
+        current_time = start_time_conversion
+        fields = ['Timestamp', 'Open Price', 'High Price', 'Low Price', 'Close Price', 'Volume']
+        writer = csv.DictWriter(csvfile, fieldnames=fields)
+        writer.writeheader()
+        current_time_int = int(start_time_conversion.strftime("%Y%m%d%H%M%S"))
+        end_int = int(end_time_conversion.strftime("%Y%m%d%H%M%S"))
+        while current_time_int < end_int:
+            end_interval = current_time + timedelta(seconds = time_frame)
+            end_interval_conversion = end_interval.strftime("%Y%m%d%H%M%S")
+            end_interval_int = int(end_interval_conversion)
+            open_price = ctg.data_list.get(current_time.strftime("%Y%m%d%H%M%S"))
+            close_price = ctg.data_list.get(end_interval_conversion)
+            if open_price is not None:
+                open_price = open_price[0][1]
+            else:
+                print(f"open price not found! for a key of {current_time.strftime('%Y%m%d%H%M%S')}")
+                current_time += timedelta(seconds=1)
+                current_time_int = int(current_time.strftime("%Y%m%d%H%M%S"))
+                continue
+            if close_price is not None:
+                close_price = close_price[0][1]
+            else:
+                print(f"close price not found! for a key of {end_interval_conversion}")
+                current_time += timedelta(seconds=1)
+                current_time_int = int(current_time.strftime("%Y%m%d%H%M%S"))
+                continue
+            high_price = 0
+            low_price = 99999999999999999999999999999
+            volume = 0
+            start_time = current_time
+            while current_time_int <= end_interval_int:
+                if current_time.hour == 23 and current_time.minute >= 59:
+                    current_time = current_time.replace(hour=9, minute=30) + timedelta(days=1)
+                data_entry = ctg.data_list.get(current_time.strftime('%Y%m%d%H%M%S'))
+                if data_entry is None:
+                    print(f"No data found for {current_time.strftime('%Y-%m-%d %H:%M:%S')} with key {current_time.strftime('%Y%m%d%H%M%S')}")
+                else:
+                    for i in data_entry:
+                        price_float = float(i[1])
+                        volume += int(i[2])
+                        if price_float > high_price:
+                            high_price = price_float
+                        if price_float < low_price:
+                            low_price = price_float
+                current_time += timedelta(seconds=1)
+                #write to csv based on etc factors
+                current_time_int = int(current_time.strftime("%Y%m%d%H%M%S"))
+            writer.writerow({
+                'Timestamp' : start_time,
+                'Open Price': open_price,
+                'High Price': high_price,
+                'Low Price': low_price,
+                'Close Price': close_price,
+                'Volume': volume
+            })
 
-    print("Done!")
-
-    #write to csv based on etc factors
 
 # print(index)
 ctg_ticks = DataDictionary()
 # day_tick(file_list, ctg_ticks.data_list)
 
 # print("\n\n")
-thread_manager(file_list, ctg_ticks.data_list, ctg_ticks.error_list)
-
+thread_manager(file_list, ctg_ticks)
 # print(ctg_ticks.data_list)
 print(len(ctg_ticks.data_list))
 print(len(file_list))
-print(ctg_ticks.data_list.get('202409160930'))
-print(ctg_ticks.data_list.get('202409161456'))
 print("\n\n\n")
 # print(f" the errors: {ctg_ticks.error_list}")
 # print(ctg_ticks.data_list)
 print(ctg_ticks.data_list.get('20240916093000'))
+print(ctg_ticks.data_list)
 interface('1s', '2024-09-17 12:34:01', '2024-09-20 13:33:18', ctg_ticks)
+interface('1d,1h,1m', '2024-09-18 14:30:00', '2024-09-20 10:07:00', ctg_ticks)
+# print(data_queue.qsize())
+# # print(ctg_ticks.data_list)
+# print(len(ctg_ticks.error_list))
