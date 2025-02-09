@@ -18,7 +18,9 @@ def interface(interval, start_time, end_time, ctg):
             time_frame += int(i[:-1]) * 86400
         else:
             return "Invalid interval!"
-    file_path = f'../generated-ohlcv-csvs/ctg_{"".join(times)}_{start_time}_{end_time}ohlcv.csv'
+    format_start_time = start_time.strftime("%Y%m%d%H%M%S")
+    format_end_time = end_time.strftime("%Y%m%d%H%M%S")
+    file_path = f'../generated-ohlcv-csvs/ctg_{"".join(times)}_{format_start_time}_{format_end_time}ohlcv.csv'
     with open(file_path, 'w', newline='') as csvfile:
         current_time = start_time #set pointer to start_time
         fields = ['Timestamp', 'Open Price', 'High Price', 'Low Price', 'Close Price', 'Volume']

@@ -67,12 +67,12 @@ def data_clean(data_dict):
         volume = int(volume_str) #obtain volume from the tick
         #adjust the window to calculate price outliers
         if j is True:
-            price_window = [input_str[1]]# window to calculate
+            price_window = [price]# window to calculate
         #check if the time is valid
         if len(price_window) > price_outlier_window:
             price_window.pop(0)
         #calculate a new reasonable outlier bound every (price_outlier_window) ticks
-        if i >= price_outlier_window:
+        if i >= price_outlier_window and len(price_window) > 2:
             i = 0
             price_q1 = statistics.quantiles(price_window, n=4)[0]
             price_q3 = statistics.quantiles(price_window, n=4)[2]
