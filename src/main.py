@@ -1,14 +1,14 @@
 from datetime import datetime
 
-from src.task1 import DataDictionary, file_list
-from src.task2 import data_clean
+from src.task1 import DataDictionary
+from src.task2 import file_list
 from src.task3 import interface
 
 if __name__ == "__main__":
     path = "../"
     driver = True
     ctg_ticks = DataDictionary() #create new dictionary to store data
-    ctg_ticks.thread_manager(file_list) #begin loading process
+    ctg_ticks.thread_manager() #begin loading process
     #sample interface runs
     interface('1s', datetime.strptime('2024-09-17 12:34:01', "%Y-%m-%d %H:%M:%S"),
               datetime.strptime('2024-09-20 13:33:18', "%Y-%m-%d %H:%M:%S"), ctg_ticks)

@@ -33,13 +33,11 @@ def interface(interval, start_time, end_time, ctg):
             if open_price is not None:
                  open_price = ctg.data_list.get(current_time).open_price #open_price is price at current_time
             else:
-                 print(f"open price not found! for a key of {current_time.strftime('%Y%m%d%H%M%S')}")
                  current_time += timedelta(seconds=1) #adjust interval to next second and try again
                  continue
             if close_price is not None:
                  close_price = ctg.data_list.get(end_interval).close_price #close_price is price at end_interval
             else:
-                 print(f"close price not found! for a key of {end_interval}")
                  current_time += timedelta(seconds=1) #adjust interval to next second and try again
                  continue
             high_price = 0 #initialize high_price for interval
