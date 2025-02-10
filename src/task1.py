@@ -14,14 +14,14 @@ from src.task2 import file_queue
 
 
 def process_data():
-    while not file_queue.empty():
+    while not file_queue.empty(): #process files until no more in file_queue
         file = file_queue.get()
         with open(f"{path}/{file}", newline='') as tick:
             data = list(csv.reader(tick))[1:]  # Skip header immediately
         rows = []
         for row in data:
             rows.append(row)
-        data_queue.put(rows) #load tick into queue
+        data_queue.put(rows) # load collection of seconds within the minute to be cleaned
 
 class DataDictionary:
     def __init__(self):
@@ -31,11 +31,11 @@ class DataDictionary:
 
     def thread_manager(self):
         start_time = time.time()
-        max_workers = os.cpu_count() * 1
-        data_cleaners = int(max_workers * 0.2)
-        data_loaders = max_workers - data_cleaners
-        data_dicts = []
-        futures = []
+        max_workers = os.cpu_count() * 1 #total workers
+        data_cleaners = int(max_workers * 0.2) #total data cleaning threads
+        data_loaders = max_workers - data_cleaners #total data processing threads
+        data_dicts = [] #keep track of all dictionaries
+        futures = [] #keep track of all threads
         with ThreadPoolExecutor(max_workers=max_workers) as exe:  # set threads for data loading
             for i in range(data_loaders):
                 futures.append(exe.submit(process_data))
@@ -44,10 +44,10 @@ class DataDictionary:
                 data_dicts.append(ctg)
                 futures.append(exe.submit(data_clean, ctg))
         for future in concurrent.futures.as_completed(futures):
-            future.result()
+            future.result() #iterate once thread is finished
         print("All threads finished. Data is ready to be used.")
         for ctg in data_dicts:
-            self.merge(ctg)
+            self.merge(ctg) #merge all dictionaries into one dictionary
         end_time = time.time()
         print(f"total loading time = {end_time - start_time}")
 

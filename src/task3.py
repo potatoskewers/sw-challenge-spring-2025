@@ -7,7 +7,7 @@ def interface(interval, start_time, end_time, ctg):
     #process the interval
     times = interval.split(" ")
     time_frame = 0
-    for i in times:
+    for i in times: #convert interval into seconds to determine end-time for each interval
         if i[-1] == 'h':
             time_frame += int(i[:-1]) * 3600
         elif i[-1] == 'm':
@@ -18,12 +18,12 @@ def interface(interval, start_time, end_time, ctg):
             time_frame += int(i[:-1]) * 86400
         else:
             return "Invalid interval!"
-    format_start_time = start_time.strftime("%Y%m%d%H%M%S")
+    format_start_time = start_time.strftime("%Y%m%d%H%M%S") #format times for file name generation
     format_end_time = end_time.strftime("%Y%m%d%H%M%S")
     file_path = f'../generated-ohlcv-csvs/ctg_{"".join(times)}_{format_start_time}_{format_end_time}ohlcv.csv'
     with open(file_path, 'w', newline='') as csvfile:
         current_time = start_time #set pointer to start_time
-        fields = ['Timestamp', 'Open Price', 'High Price', 'Low Price', 'Close Price', 'Volume']
+        fields = ['Timestamp', 'Open Price', 'High Price', 'Low Price', 'Close Price', 'Volume'] #define dataset fields
         writer = csv.DictWriter(csvfile, fieldnames=fields)
         writer.writeheader()
         while current_time < end_time:
@@ -55,6 +55,7 @@ def interface(interval, start_time, end_time, ctg):
                         low_price = data_entry.low_price
                     volume += data_entry.volume #add volume to total in interval
                 current_time += timedelta(seconds=1) #move to next second
+            # write to file
             writer.writerow({
                 'Timestamp' : start_time,
                 'Open Price': open_price,

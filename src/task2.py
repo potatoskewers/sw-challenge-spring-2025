@@ -20,7 +20,7 @@ class DataBucket:
         self.rows = [] #ticks that happened within the second
         self.open_time = first_time + timedelta(seconds=1) #initialize time of first trade in the second
         self.close_time = first_time #initialize time of last trade in the second
-        self.open_price = None
+        self.open_price = None #initialize vlaues
         self.close_price = None
         self.high_price = None
         self.low_price = None
@@ -44,26 +44,31 @@ class DataBucket:
             self.ohlcv_bucket(i[0], i[1], i[2], i)
 
 def data_clean(data_dict):
-    market_open_hour = 9 # calculate only market hours since after hours have too little liquidity
-    market_open_minute = 30
-    market_close_hour = 16
-    market_close_minute = 30
-    i = 0
-    j = True
-
-    while not data_queue.empty():
+    while True:
         try:
             rows = data_queue.get(timeout=2)
         except queue.Empty:
             break
-        price_outlier_window = len(rows) * .10
-        price_upper_bound = 430  # instantiated temporary bounds
-        price_lower_bound = 395
         volume_lower_bound = 10
         duplicates = {}
         seen_keys = set()
+        prices = []
+        for row in rows: #obtain prices for outlier calculations
+            try:
+                prices.append(float(row[1]))
+            except ValueError:
+                continue
+        sorted_prices = sorted(prices)
+        n = len(sorted_prices)
+
+        # Calculate Q1 (25th percentile) and Q3 (75th percentile)
+        Q1 = sorted_prices[n // 4]  # Approximate Q1
+        Q3 = sorted_prices[(3 * n) // 4]  # Approximate Q3
+        IQR = Q3 - Q1
+
+        price_lower_bound = Q1 - 5 * IQR
+        price_upper_bound = Q3 + 5 * IQR
         for row in rows:
-            i += 1
             input_str = row #pop off from queue
             try:
                 row_timestamp = datetime.strptime(input_str[0], "%Y-%m-%d %H:%M:%S.%f")
@@ -86,21 +91,13 @@ def data_clean(data_dict):
             price = float(price_str) #obtain price from the tick
             volume = int(volume_str) #obtain volume from the tick
             #adjust the window to calculate price outliers
-            if j is True:
-                price_window = [price]# window to calculate
+            if price < 0:
+                continue
             #check if the time is valid
-            if len(price_window) > price_outlier_window:
-                price_window.pop(0)
-            #calculate a new reasonable outlier bound every (price_outlier_window) ticks
-            #dynamic outlier calculation not accurate all the time, changed to removing extreme outliers
-            # if i >= price_outlier_window and len(price_window) > 2:
-            #     i = 0
-            #     price_q1 = statistics.quantiles(price_window, n=4)[0]
-            #     price_q3 = statistics.quantiles(price_window, n=4)[2]
-            #     price_iqr = price_q3 - price_q1
-            #     price_lower_bound = price_q1 - 30 * price_iqr
-            #     price_upper_bound = price_q3 + 30 * price_iqr
-            #skip insignificant volumes as it adds noise to dataset
+            # if volume < 0: #check for negative volume
+            #     continue
+            # if volume == 0: #check for empty volumes
+            #     continue
             if volume < volume_lower_bound:
                 continue
             #skip outlier errors
@@ -108,8 +105,9 @@ def data_clean(data_dict):
                 continue
             #append duplicate timestamps to be aggregated for later
             if row_timestamp in seen_keys:
-                if row_timestamp not in duplicates:
-                    duplicates[row_timestamp] = [row_timestamp, float(input_str[1]), int(input_str[2]), 1]
+                if input_str in data_dict.data_list.get(key).rows: #check for any duplicate entries
+                    #print(f"duplicate entry found! {input_str}")
+                    continue
                 else:
                     dupe_count = duplicates.get(row_timestamp)[3]
                     curr_avg =duplicates.get(row_timestamp)[1]
@@ -121,8 +119,6 @@ def data_clean(data_dict):
             elif key not in data_dict.data_list.keys():
                 data_dict.data_list[key] = DataBucket(key) #create DataBucket
             data_dict.data_list.get(key).ohlcv_bucket(row_timestamp, price, volume, input_str) #evaluate ohlcv for interval of the second
-            price_window.append(price) #insert price to the outlier window
+            # price_window.append(price) #insert price to the outlier window
             seen_keys.add(row_timestamp) #add current time to keys seen
             duplicates[row_timestamp] = [row_timestamp, price, volume, 1] #intialize
-            # print(input_str)
-            j = False
