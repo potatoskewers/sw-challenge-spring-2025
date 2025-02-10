@@ -3,7 +3,7 @@ import os
 from datetime import datetime, timedelta
 
 def interface(interval, start_time, end_time, ctg):
-    print("Starting interface!")
+    print("Generating File!")
     #process the interval
     times = interval.split(" ")
     time_frame = 0
@@ -63,4 +63,4 @@ def interface(interval, start_time, end_time, ctg):
                 'Close Price': close_price,
                 'Volume': volume
             })
-    print(f"OHLCV csv file generated at path {os.path.abspath(file_path)}")
+    print(f"OHLCV csv file generated at path {os.path.abspath(file_path)}\n\n")

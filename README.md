@@ -37,11 +37,20 @@ Step-by-step guide on how to set up and install dependencies.
 4. The generated files will be at the directory specified. You may keep requesting ohlcv files after that
 5. Afterwards, type "quit" to stop the program
 ## Examples:
-
+Example usages in terminal:
+![Screenshot 2025-02-09 at 6.49.24 PM.png](example-screenshots/Screenshot%202025-02-09%20at%206.49.24%E2%80%AFPM.png)
+Example of common input errors :
+![Screenshot 2025-02-09 at 6.49.40 PM.png](example-screenshots/Screenshot%202025-02-09%20at%206.49.40%E2%80%AFPM.png)
+Example of quitting the interface:
+![Screenshot 2025-02-09 at 6.50.27 PM.png](example-screenshots/Screenshot%202025-02-09%20at%206.50.27%E2%80%AFPM.png)
+Example of an ohlcv file, produced in the first example.
+![Screenshot 2025-02-09 at 6.51.08 PM.png](example-screenshots/Screenshot%202025-02-09%20at%206.51.08%E2%80%AFPM.png)
 ## Limitations to the interface
 The following are limitations to the interface's current release:
 * Can only support English input and output
 * Can be slower if machine has low memory capacity
+* If an interval lacks a valid start or end timestamp data, both are shifted by a second until a match is found. With high-frequency data, intervals can be rarely contiguous, so the design ensures efficient handling of gaps.
+* Can only check for outliers beyond 3 standard deviations
 
 ## Assumptions about interface
 The following are assumptions in the Cardinal Trading Group tick data in accordance to creating the interface and cleaning the data

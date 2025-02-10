@@ -22,8 +22,8 @@ class DataBucket:
         self.close_time = first_time #initialize time of last trade in the second
         self.open_price = None
         self.close_price = None
-        self.high_price = 0
-        self.low_price = 999999999999999999999999
+        self.high_price = None
+        self.low_price = None
         self.volume =  0
 
     def ohlcv_bucket(self, curr_time, price, volume, row):
@@ -33,9 +33,9 @@ class DataBucket:
         if curr_time >= self.close_time:
             self.close_time = curr_time #set close_time to current_time if current_time later than close_time
             self.close_price = price #set close_price to current price
-        if price > self.high_price:
+        if self.high_price is None or price > self.high_price:
             self.high_price = price #price to the highest price if price more than high price
-        if price < self.low_price:
+        if self.low_price is None or price < self.low_price:
             self.low_price = price #price to the lowest price if price less than high price
         self.volume += volume #add to total volume in the second
         self.rows.append(row) #add tick to raw data
@@ -44,20 +44,24 @@ class DataBucket:
             self.ohlcv_bucket(i[0], i[1], i[2], i)
 
 def data_clean(data_dict):
-    price_upper_bound = 500 #instantiated temporary bounds
-    price_lower_bound = 400
-    volume_lower_bound = 10
-    duplicates = {}
-    seen_keys = set()
     market_open_hour = 9 # calculate only market hours since after hours have too little liquidity
     market_open_minute = 30
     market_close_hour = 16
     market_close_minute = 30
     i = 0
     j = True
-    price_outlier_window = (data_queue.qsize())*.10
+
     while not data_queue.empty():
-        rows = data_queue.get()
+        try:
+            rows = data_queue.get(timeout=2)
+        except queue.Empty:
+            break
+        price_outlier_window = len(rows) * .10
+        price_upper_bound = 430  # instantiated temporary bounds
+        price_lower_bound = 395
+        volume_lower_bound = 10
+        duplicates = {}
+        seen_keys = set()
         for row in rows:
             i += 1
             input_str = row #pop off from queue
@@ -66,13 +70,13 @@ def data_clean(data_dict):
                 #set the key for the dictionary entry
                 key = row_timestamp.replace(microsecond=0)
             except ValueError:
-                print(f"time error!")
                 continue
             # skip data that has invalid timestamp
             hour = row_timestamp.hour
             minute = row_timestamp.minute
+            combined_time = int(f"{row_timestamp.hour:02d}{row_timestamp.minute:02d}")
             #skip data that is before trading hours or after trading hours
-            if hour > market_close_hour and minute > market_close_minute or hour < market_open_hour and minute < market_open_minute:
+            if combined_time < 930 or combined_time > 1630:
                 continue
             price_str = input_str[1].strip() if input_str[1] else None
             volume_str = input_str[2].strip() if input_str[2] else None
@@ -88,13 +92,14 @@ def data_clean(data_dict):
             if len(price_window) > price_outlier_window:
                 price_window.pop(0)
             #calculate a new reasonable outlier bound every (price_outlier_window) ticks
-            if i >= price_outlier_window and len(price_window) > 2:
-                i = 0
-                price_q1 = statistics.quantiles(price_window, n=4)[0]
-                price_q3 = statistics.quantiles(price_window, n=4)[2]
-                price_iqr = price_q3 - price_q1
-                price_lower_bound = price_q1 - 5 * price_iqr
-                price_upper_bound = price_q3 + 5 * price_iqr
+            #dynamic outlier calculation not accurate all the time, changed to removing extreme outliers
+            # if i >= price_outlier_window and len(price_window) > 2:
+            #     i = 0
+            #     price_q1 = statistics.quantiles(price_window, n=4)[0]
+            #     price_q3 = statistics.quantiles(price_window, n=4)[2]
+            #     price_iqr = price_q3 - price_q1
+            #     price_lower_bound = price_q1 - 30 * price_iqr
+            #     price_upper_bound = price_q3 + 30 * price_iqr
             #skip insignificant volumes as it adds noise to dataset
             if volume < volume_lower_bound:
                 continue
@@ -121,6 +126,3 @@ def data_clean(data_dict):
             duplicates[row_timestamp] = [row_timestamp, price, volume, 1] #intialize
             # print(input_str)
             j = False
-        print("Data Cleaning Complete!")
-        print(f"Remaining queue size: {data_queue.qsize()}")
-        print(f"Remaining file queue size: {file_queue.qsize()}")
