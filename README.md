@@ -46,11 +46,10 @@ Step-by-step guide on how to set up and install dependencies.
 ```bash
     cd ../Desktop/sw-challenge-spring-2025
 ```
-2. Run the main program by executing the following in terminal:
+2. Run the ```main.py``` program in your terminal:
+* **NOTE:** you must have python installed on your computer to run this file. Follow instructions on 
+how to do so here: https://www.python.org/downloads/
 
-```bash
-    python main.py
-```
 3. Wait for the data to finish loading indicated by the message "Data Cleaning Complete!" in terminal, and then in the terminal type in the interval, start time, end time
    * the interval is in the format of 'xs', 'xm', 'xh', 'xd', etc and can support combinations in the format of 'xs,xm,xh,xd' , 'xs,xs,xs' , 'xm'  where x is any positive integer and s, m, h, d represent units of time.
    * the start and end time must be in the format of 'Y-m-d H:M:S' where Y represents year, m represents month, d represents day, H represents hour, M represents minute, and S represents second.
