@@ -12,9 +12,11 @@
 <hr style="border: 2px solid grey;">
 
 ## Data Loading
+
+```done in task1.py```
+
 When loading the data, I chose multithreading so that I can load multiple data files at the same time. I also made sure to load the data into a queue as queues are thread-safe, meaning that the threads will not collide when trying to store/retrieve data and possibly corrupt the data.
 
-<hr style="border: 2px solid grey;">
 
 ### Approach:
 1. First, I loaded all of the files into a queue. This way, while the files were being loaded off of a queue,
@@ -91,6 +93,9 @@ batch of entries that occurred within a minute
 
 
 ## Data Cleaning Report:
+
+```done in task2.py```
+
 When processing the data, each tick filtered into three sections:
 * **Discard**
 * **Format**
@@ -98,8 +103,6 @@ When processing the data, each tick filtered into three sections:
 
 
 For each tick entry, I checked the following criteria to make sure it was discarded, formatted, or accepted. Data that might not be appropriate for computer processing is still valid data and should still be accounted for, but data that is clearly invalid or irrelevant should be deleted.
-
-<hr style="border: 2px solid grey;">
 
 ### Errors
 
@@ -266,6 +269,7 @@ if input_str in data_dict.data_list.get(key).rows: #check for any duplicate entr
 <hr style="border: 2px solid grey;">
 
 # Interface Preperation
+```done in task2.py```
 As part of the cleaning process, I used a dictionary with each key being a second of time (e.g. 2024-09-16 12:20:25), 
 and each key would map to a bucket that contains the raw data that happened within the second along with
 the ohlcv values evaluated at the millisecond entries in the timestamp's second.

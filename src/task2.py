@@ -1,6 +1,5 @@
 import os
 import queue
-import statistics
 from datetime import datetime, timedelta
 import re
 
@@ -11,7 +10,7 @@ file_list.sort(key=lambda x: tuple(map(int, pattern.search(x).groups()))) #sorti
 
 data_queue = queue.Queue()
 file_queue = queue.Queue()
-for i in file_list:
+for i in file_list: #initialize file queue
     file_queue.put(i)
 
 class DataBucket:
@@ -46,11 +45,12 @@ class DataBucket:
 def data_clean(data_dict):
     while True:
         try:
-            rows = data_queue.get(timeout=2)
+            rows = data_queue.get(timeout=2) #get seconds rows
+            #all entries that happened within a minute of market hours
         except queue.Empty:
-            break
+            break #end thread if file_queue has no more files
         volume_lower_bound = 10
-        duplicates = {}
+        duplicates = {} #initialize duplicate logs
         seen_keys = set()
         prices = []
         for row in rows: #obtain prices for outlier calculations
@@ -58,6 +58,7 @@ def data_clean(data_dict):
                 prices.append(float(row[1]))
             except ValueError:
                 continue
+        #calculate outliers within a minute
         sorted_prices = sorted(prices)
         n = len(sorted_prices)
 
@@ -66,7 +67,7 @@ def data_clean(data_dict):
         Q3 = sorted_prices[(3 * n) // 4]  # Approximate Q3
         IQR = Q3 - Q1
 
-        price_lower_bound = Q1 - 5 * IQR
+        price_lower_bound = Q1 - 5 * IQR #calculate bounds
         price_upper_bound = Q3 + 5 * IQR
         for row in rows:
             input_str = row #pop off from queue
@@ -77,8 +78,6 @@ def data_clean(data_dict):
             except ValueError:
                 continue
             # skip data that has invalid timestamp
-            hour = row_timestamp.hour
-            minute = row_timestamp.minute
             combined_time = int(f"{row_timestamp.hour:02d}{row_timestamp.minute:02d}")
             #skip data that is before trading hours or after trading hours
             if combined_time < 930 or combined_time > 1630:
@@ -105,7 +104,7 @@ def data_clean(data_dict):
                 continue
             #append duplicate timestamps to be aggregated for later
             if row_timestamp in seen_keys:
-                if input_str in data_dict.data_list.get(key).rows: #check for any duplicate entries
+                if input_str in data_dict.data_list.get(key).rows: #check for any exact duplicate entries
                     #print(f"duplicate entry found! {input_str}")
                     continue
                 else:
@@ -119,6 +118,5 @@ def data_clean(data_dict):
             elif key not in data_dict.data_list.keys():
                 data_dict.data_list[key] = DataBucket(key) #create DataBucket
             data_dict.data_list.get(key).ohlcv_bucket(row_timestamp, price, volume, input_str) #evaluate ohlcv for interval of the second
-            # price_window.append(price) #insert price to the outlier window
             seen_keys.add(row_timestamp) #add current time to keys seen
             duplicates[row_timestamp] = [row_timestamp, price, volume, 1] #intialize

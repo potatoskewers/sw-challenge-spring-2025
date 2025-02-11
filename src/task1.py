@@ -1,9 +1,6 @@
 import concurrent
 import os
 import csv
-import queue
-import re
-from asyncio import as_completed
 from concurrent.futures import ThreadPoolExecutor, wait
 from datetime import time, timedelta
 import time
@@ -38,11 +35,11 @@ class DataDictionary:
         futures = [] #keep track of all threads
         with ThreadPoolExecutor(max_workers=max_workers) as exe:  # set threads for data loading
             for i in range(data_loaders):
-                futures.append(exe.submit(process_data))
+                futures.append(exe.submit(process_data)) #start data processing thread
             for i in range(data_cleaners):
                 ctg = DataDictionary()
                 data_dicts.append(ctg)
-                futures.append(exe.submit(data_clean, ctg))
+                futures.append(exe.submit(data_clean, ctg)) #start data clean thread
         for future in concurrent.futures.as_completed(futures):
             future.result() #iterate once thread is finished
         print("All threads finished. Data is ready to be used.")

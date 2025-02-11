@@ -1,6 +1,6 @@
 import csv
 import os
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 def interface(interval, start_time, end_time, ctg):
     print("Generating File!")

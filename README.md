@@ -20,11 +20,13 @@ This interface generates Cardinal Trading Group OHLCV (Open, High, Low, Close, V
 
 ## Features
 The following are key features about the interface's design:
-* **Multithreading** makes the data load more efficient by processing multiple files at the same time.
+* **Multithreading** makes the data load more efficient by processing and cleaning multiple files at the same time.
+* **Publish-subscribe pattern** is implemented by using queues to properly scale workloads for file loading and data cleaning workers, as well as to guarrent thread safety 
 * **Abstracts** and pre-calculates OHLCV for each second to speed up the ohlcv file generation process.
 * **Aggregates** duplicate timestamps so that ohlcv file generation doesn't have to pick and choose which timestamp to pick if the duplicate is a start or end interval.
 * **Detects** and removes data errors found in datasets.
 * **Noise** reduction by abstracting away irrelevant tick data.
+* **Multiple** OHLCV files can be produced with the same data loaded into memory 
 
 <hr style="border: 2px solid grey;">
 
